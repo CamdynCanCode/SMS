@@ -1,69 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Fake SMS (Private)</title>
-  <style>
-    body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 2rem; }
-    #messages { border: 1px solid #ccc; padding: 1rem; height: 300px; overflow-y: scroll; margin-bottom: 1rem; }
-    .msg { margin-bottom: 1rem; }
-    .timestamp { color: #999; font-size: 0.8em; }
-  </style>
+  <meta charset="UTF-8" />
+  <title>SMS Viewer</title>
 </head>
 <body>
-  <h1>📱 Private SMS</h1>
-  <div id="messages">Loading...</div>
+  <h1>SMS Messages</h1>
 
-  <input type="text" id="sender" placeholder="Your name" />
-  <input type="text" id="receiver" placeholder="Send to..." />
-  <input type="text" id="message" placeholder="Type a message..." />
-  <button onclick="sendMessage()">Send</button>
+  <label for="receiver">Show messages for:</label>
+  <input type="text" id="receiver" value="bob" />
+  <button onclick="loadMessages()">Load Messages</button>
+
+  <ul id="messages"></ul>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwD8TXph5yipQoZ2wwPdiyNiyxzfDLfxqTU8Hq8lZiWlKZGMpCosvEmm4jXUL8uUfsv/exec';
+    // This function is called by the JSONP response from Google Apps Script
+    function handleMessages(data) {
+      const ul = document.getElementById('messages');
+      ul.innerHTML = ''; // Clear existing messages
 
-    async function loadMessages() {
-      const receiver = document.getElementById('sender').value;
-      if (!receiver) return; // Can't load messages without sender identity
+      if (data.error) {
+        ul.innerHTML = `<li style="color:red;">Error: ${data.error}</li>`;
+        return;
+      }
 
-      const res = await fetch(`${API_URL}?receiver=${encodeURIComponent(receiver)}`);
-      const messages = await res.json();
+      if (!data.length) {
+        ul.innerHTML = '<li>No messages found.</li>';
+        return;
+      }
 
-      const box = document.getElementById('messages');
-      box.innerHTML = '';
-      messages.forEach(msg => {
-        const isIncoming = msg.receiver === receiver;
-        const bubble = document.createElement('div');
-        bubble.className = 'msg';
-        bubble.innerHTML = `
-          <div><strong>${msg.sender}</strong> → <strong>${msg.receiver}</strong>: ${msg.message}</div>
-          <div class="timestamp">${new Date(msg.timestamp).toLocaleString()}</div>
-        `;
-        box.appendChild(bubble);
+      data.forEach(msg => {
+        const li = document.createElement('li');
+        li.textContent = `[${new Date(msg.timestamp).toLocaleString()}] ${msg.sender} → ${msg.receiver}: ${msg.message}`;
+        ul.appendChild(li);
       });
-      box.scrollTop = box.scrollHeight;
     }
 
-    async function sendMessage() {
-      const sender = document.getElementById('sender').value || 'anon';
-      const receiver = document.getElementById('receiver').value || 'all';
-      const message = document.getElementById('message').value;
+    function loadMessages() {
+      const receiver = encodeURIComponent(document.getElementById('receiver').value.trim());
 
-      if (!message.trim()) return;
+      // Remove any existing JSONP script tag to avoid duplicates
+      const oldScript = document.getElementById('jsonpScript');
+      if (oldScript) oldScript.remove();
 
-      await fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({ sender, receiver, message }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      document.getElementById('message').value = '';
-      loadMessages();
+      const script = document.createElement('script');
+      script.id = 'jsonpScript';
+      script.src = `https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?receiver=${receiver}&callback=handleMessages`;
+      document.body.appendChild(script);
     }
 
-    setInterval(loadMessages, 5000);
-    document.getElementById('sender').addEventListener('input', loadMessages);
-    loadMessages();
+    // Load default on page load
+    window.onload = loadMessages;
   </script>
 </body>
 </html>
