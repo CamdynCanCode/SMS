@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fake SMS (Private)</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 2rem; }
+    #messages { border: 1px solid #ccc; padding: 1rem; height: 300px; overflow-y: scroll; margin-bottom: 1rem; }
+    .msg { margin-bottom: 1rem; }
+    .timestamp { color: #999; font-size: 0.8em; }
+  </style>
+</head>
+<body>
+  <h1>📱 Private SMS</h1>
+  <div id="messages">Loading...</div>
+
+  <input type="text" id="sender" placeholder="Your name" />
+  <input type="text" id="receiver" placeholder="Send to..." />
+  <input type="text" id="message" placeholder="Type a message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    const API_URL = 'YOUR_GOOGLE_SCRIPT_WEBAPP_URL_HERE';
+
+    async function loadMessages() {
+      const receiver = document.getElementById('sender').value;
+      if (!receiver) return; // Can't load messages without sender identity
+
+      const res = await fetch(`${API_URL}?receiver=${encodeURIComponent(receiver)}`);
+      const messages = await res.json();
+
+      const box = document.getElementById('messages');
+      box.innerHTML = '';
+      messages.forEach(msg => {
+        const isIncoming = msg.receiver === receiver;
+        const bubble = document.createElement('div');
+        bubble.className = 'msg';
+        bubble.innerHTML = `
+          <div><strong>${msg.sender}</strong> → <strong>${msg.receiver}</strong>: ${msg.message}</div>
+          <div class="timestamp">${new Date(msg.timestamp).toLocaleString()}</div>
+        `;
+        box.appendChild(bubble);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const sender = document.getElementById('sender').value || 'anon';
+      const receiver = document.getElementById('receiver').value || 'all';
+      const message = document.getElementById('message').value;
+
+      if (!message.trim()) return;
+
+      await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ sender, receiver, message }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      document.getElementById('message').value = '';
+      loadMessages();
+    }
+
+    setInterval(loadMessages, 5000);
+    document.getElementById('sender').addEventListener('input', loadMessages);
+    loadMessages();
+  </script>
+</body>
+</html>
